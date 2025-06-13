@@ -72,10 +72,10 @@ if uploaded_file is not None:
             norm_df = pd.DataFrame()
             for crit in selected_criteria:
                 if jenis_kriteria[crit] == "Benefit":
-                    norm_df[crit] = df[crit] / df[crit].max()
+                    norm_df[crit] = (df[crit] - df[crit].min()) / (df[crit].max() - df[crit].min())
                 else:  # Cost
-                    norm_df[crit] = df[crit].min() / df[crit]
-
+                    norm_df[crit] = (df[crit].max() - df[crit]) / (df[crit].max() - df[crit].min())
+                    
             # SAW
             df['SAW_Score'] = norm_df.dot(weights)
 
