@@ -51,6 +51,9 @@ if uploaded_file is not None:
                     numeric_cols,
                     default=numeric_cols[:2]
                 )
+                jenis_kriteria = {}
+                for crit in selected_criteria:
+                    jenis_kriteria[crit] = st.selectbox(f"Jenis kriteria untuk {crit}", ["Benefit", "Cost"])
 
                 if selected_criteria:
                     st.subheader("⚖️ Atur Bobot Tiap Kriteria (%)")
@@ -65,9 +68,13 @@ if uploaded_file is not None:
                     else:
                         weights = np.array(weights_raw) / weight_total
 
-            # Normalisasi
-            scaler = MinMaxScaler()
-            norm_df = pd.DataFrame(scaler.fit_transform(df[selected_criteria]), columns=selected_criteria)
+            # Normalisasi manual sesuai cost/benefit
+            norm_df = pd.DataFrame()
+            for crit in selected_criteria:
+                if jenis_kriteria[crit] == "Benefit":
+                    norm_df[crit] = df[crit] / df[crit].max()
+                else:  # Cost
+                    norm_df[crit] = df[crit].min() / df[crit]
 
             # SAW
             df['SAW_Score'] = norm_df.dot(weights)
