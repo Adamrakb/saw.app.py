@@ -14,7 +14,7 @@ def paginate_dataframe(data, page_size=10, key=None):
 
 # Pengaturan Halaman
 st.set_page_config(page_title="Sistem Pendukung Keputusan", layout="wide")
-st.title("📊 Sistem Pendukung Keputusan Adaptif dengan Analisis Sensitivitas")
+st.title("📊 Perancangan Sistem Pendukung Keputusan Berbasis SAW dan Analisis Perbandingan TOPSIS")
 
 # Upload CSV
 uploaded_file = st.file_uploader("📁 Upload file CSV Anda", type=["csv"])
@@ -68,35 +68,42 @@ if uploaded_file is not None:
                     else:
                         weights = np.array(weights_raw) / weight_total
 
-            # Normalisasi manual sesuai cost/benefit
+            # === SAW ===
             norm_df = pd.DataFrame()
             for crit in selected_criteria:
                 if jenis_kriteria[crit] == "Benefit":
                     norm_df[crit] = (df[crit] - df[crit].min()) / (df[crit].max() - df[crit].min())
                 else:  # Cost
                     norm_df[crit] = (df[crit].max() - df[crit]) / (df[crit].max() - df[crit].min())
-                    
-            # SAW
             df['SAW_Score'] = norm_df.dot(weights)
 
-            # WP
-            wp_scores = np.prod(np.power(norm_df, weights), axis=1)
-            df['WP_Score'] = wp_scores / np.max(wp_scores)
+            # === TOPSIS sesuai buku Tatan Sukwika ===
+            # 1. Normalisasi
+            topsis_norm = pd.DataFrame()
+            for crit in selected_criteria:
+                topsis_norm[crit] = df[crit] / np.sqrt((df[crit]**2).sum())
 
-            # TOPSIS
-            ideal_pos = norm_df.max()
-            ideal_neg = norm_df.min()
-            d_pos = np.sqrt(((norm_df - ideal_pos) ** 2 * weights).sum(axis=1))
-            d_neg = np.sqrt(((norm_df - ideal_neg) ** 2 * weights).sum(axis=1))
+            # 2. Pembobotan
+            topsis_weighted = topsis_norm * weights
+
+            # 3. Solusi ideal positif dan negatif
+            ideal_pos = topsis_weighted.max()
+            ideal_neg = topsis_weighted.min()
+
+            # 4. Jarak ke solusi ideal
+            d_pos = np.sqrt(((topsis_weighted - ideal_pos)**2).sum(axis=1))
+            d_neg = np.sqrt(((topsis_weighted - ideal_neg)**2).sum(axis=1))
+
+            # 5. Nilai preferensi
             df['TOPSIS_Score'] = d_neg / (d_pos + d_neg)
 
             # Label kolom untuk identifikasi
             label_col = selected_cat if selected_cat in df.columns else df.index.astype(str)
-            display_df = df[[*selected_criteria, 'SAW_Score', 'WP_Score', 'TOPSIS_Score']].copy()
+            display_df = df[[*selected_criteria, 'SAW_Score', 'TOPSIS_Score']].copy()
             display_df[label_col] = df[label_col]
             sorted_df = display_df.sort_values(by='SAW_Score', ascending=False)
 
-            # === TAB LAYOUT ===
+            # === TAB ===
             tab1, tab2, tab3 = st.tabs(["📄 Pratinjau Data", "📊 Hasil Skor", "📉 Grafik Skor"])
 
             with tab1:
@@ -109,9 +116,16 @@ if uploaded_file is not None:
                 paginated_result = paginate_dataframe(sorted_df, page_size=10, key="ranking")
                 st.dataframe(paginated_result, use_container_width=True)
 
+                # Hasil Keputusan
+                st.markdown("### 🏆 Hasil Keputusan")
+                top_saw = df.loc[df['SAW_Score'].idxmax(), label_col]
+                top_topsis = df.loc[df['TOPSIS_Score'].idxmax(), label_col]
+                st.success(f"✅ **Alternatif (SAW):** {top_saw}")
+                st.info(f"📌 **Alternatif (TOPSIS):** {top_topsis}")
+
             with tab3:
                 st.write("### 📉 Visualisasi Skor Keputusan")
-                for method in ['SAW_Score', 'WP_Score', 'TOPSIS_Score']:
+                for method in ['SAW_Score', 'TOPSIS_Score']:
                     st.markdown(f"**Metode {method.replace('_Score', '')}**")
                     bar = alt.Chart(df).mark_bar().encode(
                         x=alt.X(f'{method}:Q', title='Skor'),
