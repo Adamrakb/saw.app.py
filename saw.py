@@ -77,7 +77,7 @@ if uploaded_file is not None:
                     norm_df[crit] = (df[crit].max() - df[crit]) / (df[crit].max() - df[crit].min())
             df['SAW_Score'] = norm_df.dot(weights)
 
-            # === TOPSIS sesuai buku Tatan Sukwika ===
+            # === TOPSIS ===
             # 1. Normalisasi
             topsis_norm = pd.DataFrame()
             for crit in selected_criteria:
